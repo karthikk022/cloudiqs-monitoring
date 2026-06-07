@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloudIQS Central Monitoring</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; }
+    .header { background: linear-gradient(135deg, #1e293b, #0f172a); border-bottom: 1px solid #334155; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .header h1 { font-size: 24px; background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header .sub { color: #94a3b8; font-size: 13px; }
+    .header .time { color: #64748b; font-size: 13px; }
+    .meta-bar { display: flex; gap: 16px; padding: 16px 30px; flex-wrap: wrap; }
+    .stat-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px 24px; min-width: 150px; flex: 1; }
+    .stat-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
+    .stat-card .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 30px; margin-top: 8px; }
+    .section-header h2 { font-size: 16px; color: #94a3b8; font-weight: 600; }
+    .btn { background: linear-gradient(135deg, #38bdf8, #818cf8); border: none; color: #fff; padding: 8px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; }
+    .btn:hover { opacity: 0.9; }
+    .account-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; padding: 0 30px 20px; }
+    .acct-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 18px; }
+    .acct-card .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .acct-card .name { font-size: 15px; font-weight: 600; }
+    .acct-card .id { font-size: 11px; color: #64748b; font-family: monospace; }
+    .acct-card .badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+    .badge.hub { background: #064e3b; color: #34d399; }
+    .badge.single { background: #1e3a5f; color: #60a5fa; }
+    .badge.multi { background: #3b1f6e; color: #a78bfa; }
+    .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #0f172a; font-size: 13px; }
+    .row .l { color: #94a3b8; }
+    .row .v { font-weight: 500; }
+    .pill { padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .pill.good { background: #166534; color: #4ade80; }
+    .pill.warn { background: #713f12; color: #facc15; }
+    .pill.bad { background: #7f1d1d; color: #fca5a5; }
+    .finding { padding: 6px 10px; margin: 4px 0; border-radius: 6px; font-size: 12px; display: flex; justify-content: space-between; border-left: 3px solid; }
+    .finding.critical { background: #7f1d1d; border-color: #ef4444; }
+    .finding.high { background: #7f2d1d; border-color: #f97316; }
+    .finding.medium { background: #713f12; border-color: #eab308; }
+    .finding .sev { font-weight: 700; font-size: 10px; min-width: 50px; }
+    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 14px; padding: 0 30px 20px; }
+    .chart-box { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 18px; }
+    .chart-box h3 { font-size: 13px; color: #94a3b8; margin-bottom: 12px; }
+    .chart-box canvas { max-height: 220px; }
+    .footer { text-align: center; padding: 20px; color: #475569; font-size: 12px; border-top: 1px solid #1e293b; }
+    @media (max-width: 768px) { .meta-bar { padding: 12px 16px; } .account-grid, .charts { padding: 0 16px 16px; } .section-header { padding: 8px 16px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>CloudIQS Central Monitoring</h1>
+      <div class="sub">Multi-Account Security · Compliance · Cost Dashboard</div>
+    </div>
+    <div style="text-align:right">
+      <div class="time" id="clock"></div>
+      <div class="time" style="margin-top:2px">5 Accounts · ap-south-1 / us-east-1 / eu-west-1</div>
+    </div>
+  </div>
+
+  <div class="meta-bar" id="stats">
+    <div class="stat-card"><div class="label">Total Accounts</div><div class="value" id="v1">5</div></div>
+    <div class="stat-card"><div class="label">Open Findings</div><div class="value" style="color:#f97316" id="v2">4</div></div>
+    <div class="stat-card"><div class="label">Critical</div><div class="value" style="color:#ef4444" id="v3">1</div></div>
+    <div class="stat-card"><div class="label">Compliance</div><div class="value" style="color:#eab308" id="v4">72%</div></div>
+    <div class="stat-card"><div class="label">Monthly Cost</div><div class="value" style="color:#38bdf8" id="v5">$7,345</div></div>
+    <div class="stat-card"><div class="label">Cross-Account Roles</div><div class="value" style="color:#4ade80" id="v6">4</div></div>
+  </div>
+
+  <div class="section-header">
+    <h2>Customer Accounts</h2>
+    <button class="btn" onclick="genReport()"> Generate Report</button>
+  </div>
+
+  <div class="account-grid" id="grid">
+    <div class="acct-card">
+      <div class="top"><div><div class="name">Monitoring Hub</div><div class="id">000000000001 · ap-south-1</div></div><span class="badge hub">HUB</span></div>
+      <div class="row"><span class="l">Status</span><span class="pill good">Healthy</span></div>
+      <div class="row"><span class="l">Security Hub</span><span class="pill good">Admin</span></div>
+      <div class="row"><span class="l">Config Aggregator</span><span class="pill good">Active</span></div>
+      <div class="row"><span class="l">S3 Central Bucket</span><span class="v">cloudiqs-central-monitoring-prod</span></div>
+      <div class="row"><span class="l">Cross-Account Role</span><span class="v">CloudIQS-Monitoring-Access</span></div>
+      <div class="row"><span class="l">Findings</span><span class="v" style="color:#4ade80">1 (Info)</span></div>
+    </div>
+
+    <div class="acct-card">
+      <div class="top"><div><div class="name">Customer A</div><div class="id">000000000002 · ap-south-1</div></div><span class="badge single">SINGLE</span></div>
+      <div class="row"><span class="l">Account Type</span><span class="v">Single Account</span></div>
+      <div class="row"><span class="l">Health</span><span class="pill good">Good</span></div>
+      <div class="row"><span class="l">Open Findings</span><span class="v" style="color:#f97316">1 (HIGH)</span></div>
+      <div class="row"><span class="l">Compliance</span><span class="v" style="color:#22c55e">85%</span></div>
+      <div class="row"><span class="l">Monthly Cost</span><span class="v">$1,200</span></div>
+      <div class="finding high"><span class="sev">HIGH</span><span>S3 bucket public access blocked</span><span style="color:#64748b;font-size:10px">S3-001</span></div>
+    </div>
+
+    <div class="acct-card">
+      <div class="top"><div><div class="name">Customer B - Prod</div><div class="id">000000000003 · us-east-1</div></div><span class="badge multi">MULTI</span></div>
+      <div class="row"><span class="l">Account Type</span><span class="v">Multi-Account (Production)</span></div>
+      <div class="row"><span class="l">Health</span><span class="pill warn">Warning</span></div>
+      <div class="row"><span class="l">Open Findings</span><span class="v" style="color:#eab308">2</span></div>
+      <div class="row"><span class="l">Compliance</span><span class="v" style="color:#eab308">62%</span></div>
+      <div class="row"><span class="l">Monthly Cost</span><span class="v">$2,450</span></div>
+      <div class="finding medium"><span class="sev">MEDIUM</span><span>Security group SSH open to 0.0.0.0/0</span><span style="color:#64748b;font-size:10px">SG-002</span></div>
+      <div class="finding high"><span class="sev">HIGH</span><span>CPU > 80% for 2 consecutive periods</span><span style="color:#64748b;font-size:10px">CPU-001</span></div>
+    </div>
+
+    <div class="acct-card">
+      <div class="top"><div><div class="name">Customer B - Dev</div><div class="id">000000000004 · ap-south-1</div></div><span class="badge multi">MULTI</span></div>
+      <div class="row"><span class="l">Account Type</span><span class="v">Multi-Account (Development)</span></div>
+      <div class="row"><span class="l">Health</span><span class="pill bad">Critical</span></div>
+      <div class="row"><span class="l">Open Findings</span><span class="v" style="color:#ef4444">1 (CRITICAL)</span></div>
+      <div class="row"><span class="l">Compliance</span><span class="v" style="color:#ef4444">45%</span></div>
+      <div class="row"><span class="l">Monthly Cost</span><span class="v">$245</span></div>
+      <div class="finding critical"><span class="sev">CRITICAL</span><span>CloudTrail logging disabled</span><span style="color:#64748b;font-size:10px">CT-001</span></div>
+    </div>
+
+    <div class="acct-card">
+      <div class="top"><div><div class="name">Customer C</div><div class="id">000000000005 · eu-west-1</div></div><span class="badge multi">MULTI</span></div>
+      <div class="row"><span class="l">Account Type</span><span class="v">Multi-Account</span></div>
+      <div class="row"><span class="l">Health</span><span class="pill good">Good</span></div>
+      <div class="row"><span class="l">Open Findings</span><span class="v" style="color:#eab308">1 (MEDIUM)</span></div>
+      <div class="row"><span class="l">Compliance</span><span class="v" style="color:#eab308">68%</span></div>
+      <div class="row"><span class="l">Monthly Cost</span><span class="v">$3,450</span></div>
+      <div class="finding medium"><span class="sev">MEDIUM</span><span>EBS encryption not enabled</span><span style="color:#64748b;font-size:10px">EBS-001</span></div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-box"><h3>Findings by Severity</h3><canvas id="c1"></canvas></div>
+    <div class="chart-box"><h3>Compliance Score by Account</h3><canvas id="c2"></canvas></div>
+    <div class="chart-box"><h3>Monthly Cost by Account ($)</h3><canvas id="c3"></canvas></div>
+    <div class="chart-box"><h3>CPU Utilization Trend</h3><canvas id="c4"></canvas></div>
+  </div>
+
+  <div class="footer">CloudIQS Central Monitoring · Confidential · 2026</div>
+
+  <script>
+    setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) }, 1000);
+
+    new Chart(c1, { type:'doughnut', data:{ labels:['Critical','High','Medium','Low'], datasets:[{ data:[1,2,2,0], backgroundColor:['#ef4444','#f97316','#eab308','#22c55e'], borderWidth:0 }] }, options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ color:'#94a3b8', padding:12 } } } } });
+
+    new Chart(c2, { type:'bar', data:{ labels:['Hub','Cust A','Cust B-Prod','Cust B-Dev','Cust C'], datasets:[{ label:'Compliance %', data:[100,85,62,45,68], backgroundColor:['#4ade80','#22c55e','#eab308','#ef4444','#f97316'], borderRadius:6 }] }, options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, max:100, grid:{ color:'#1e293b' }, ticks:{ color:'#64748b' } }, x:{ grid:{ display:false }, ticks:{ color:'#94a3b8' } } } } });
+
+    new Chart(c3, { type:'bar', data:{ labels:['Cust A','Cust B-Prod','Cust B-Dev','Cust C'], datasets:[{ label:'Monthly Cost ($)', data:[1200,2450,245,3450], backgroundColor:['#60a5fa','#a78bfa','#f472b6','#38bdf8'], borderRadius:6 }] }, options:{ responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, grid:{ color:'#1e293b' }, ticks:{ color:'#64748b' } }, x:{ grid:{ display:false }, ticks:{ color:'#94a3b8' } } } } });
+
+    new Chart(c4, { type:'line', data:{ labels:['10:00','10:05','10:10','10:15','10:20'], datasets:[ { label:'Cust A', data:[65,72,46,58,63], borderColor:'#22c55e', tension:0.3 }, { label:'Cust B-Prod', data:[82,89,91,87,85], borderColor:'#ef4444', tension:0.3 }, { label:'Cust B-Dev', data:[12,15,8,10,14], borderColor:'#60a5fa', tension:0.3 }, { label:'Cust C', data:[55,62,48,52,58], borderColor:'#a78bfa', tension:0.3 } ] }, options:{ responsive:true, plugins:{ legend:{ position:'bottom', labels:{ color:'#94a3b8', padding:12 } } }, scales:{ y:{ beginAtZero:true, max:100, grid:{ color:'#1e293b' }, ticks:{ color:'#64748b' } }, x:{ grid:{ display:false }, ticks:{ color:'#94a3b8' } } } } });
+
+    function genReport() {
+      const r = {
+        generatedAt: new Date().toISOString(), reportType: 'CloudIQS Weekly Compliance Summary',
+        summary: { totalAccounts:5, openFindings:4, critical:1, high:2, medium:2, overallCompliance:'72%', totalMonthlyCost:7345 },
+        accounts: [
+          { name:'Monitoring Hub', id:'000000000001', health:'healthy', findings:1, compliance:100, cost:0 },
+          { name:'Customer A', id:'000000000002', health:'good', findings:1, compliance:85, cost:1200 },
+          { name:'Customer B-Prod', id:'000000000003', health:'warning', findings:2, compliance:62, cost:2450 },
+          { name:'Customer B-Dev', id:'000000000004', health:'critical', findings:1, compliance:45, cost:245 },
+          { name:'Customer C', id:'000000000005', health:'good', findings:1, compliance:68, cost:3450 }
+        ],
+        recommendations: [
+          'Enable CloudTrail in Customer B-Dev immediately (CRITICAL)',
+          'Restrict SSH inbound rules in Customer B-Prod security groups',
+          'Enable EBS encryption by default for Customer C',
+          'Review S3 bucket policies for Customer A',
+          'Set up budget alerts for Customer C ($3,450/mo)'
+        ]
+      };
+      const b = new Blob([JSON.stringify(r,null,2)], {type:'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(b);
+      a.download = `cloudiqs-report-${new Date().toISOString().slice(0,10)}.json`; a.click();
+      URL.revokeObjectURL(a);
+    }
+  </script>
+</body>
+</html>
